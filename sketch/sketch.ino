@@ -1,3 +1,7 @@
+/* This is based on polling - would be nice to reimplements to use an eventing model */
+
+
+
 /*
   LiquidCrystal Library - Hello World
  
@@ -38,19 +42,33 @@
 // include the library code:
 #include <LiquidCrystal.h>
 
+//#define n 2
+
+
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+typedef struct Machine {
+  int pin;         // arduino pin for sensor input
+  char* name;      // name of machine for display
+  int threshold;   // minimum sensor input that represents a run state for this machine
+  int postrun;     // seconds of extractor post run after machine stop
+};
 
 int relayPin = 9; // control relay connected to digital pin 9
 int manPin = 8;   // manual switch connected to digital pin 8
 int extSenPin = 10;
+//Machine machines[n];
 //int val = 0;     // variable to store the read value
 
-typedef struct {
-  byte pin : 6;
-  byte mode : 1;
-  byte state : 1;
-} Machine;
+#define M_SIZE = 2
+
+Machine machines[] = { 
+    (Machine){1, "Planer", 800, 5}, 
+    (Machine){2, "Bandsaw", 800, 5} 
+    //(Machine){1, "Planer", 800, 5}, 
+    //(Machine){2, "Bandsaw", 800, 5}
+};
 
 void setup() {
   // set up the LCD's number of columns and rows:
@@ -58,54 +76,25 @@ void setup() {
   pinMode(relayPin, OUTPUT);      // sets the digital pin 9 as output
   pinMode(manPin, INPUT);      // sets the digital pin 8 as input
   pinMode(extSenPin, INPUT);
+  
+  //machines = { {1, "Planer", 800, 5},{1, "Bandsaw", 800, 5}};
 }
 
 void loop() {
-  // set the cursor to column 0, line 1
-  // (note: line 1 is the second row, since counting begins with 0):
-  //lcd.clear();  
-  //lcd.setCursor(0, 1);
-  // print the number of seconds since reset:
-  //lcd.print(millis()/1000);
-  //delay(2000);
-  
-  //val = digitalRead(manPin);   // read the input pin
-      // sets the LED to the button's value
-  
+  //check for manual
   if (digitalRead(manPin)==HIGH){
-    //close the relay
-    digitalWrite(relayPin, HIGH);
-    //Display Manual Screen
-    lcd.clear();  
-    lcd.setCursor(0, 0);
-    lcd.print("MANUAL OVERRIDE");
-    lcd.setCursor(0, 1);
-    lcd.print("Extract ON  5.4A");
-    //delay(4000);
+    ManualOverride();
+  }
+  //loop over machine array
+  for(int i=0;i<2;i++){
+    if(machines[i].threshold < GetSensorValue(machines[i].pin)){
+      Run(i);
+    }
   }
   
-  //Display Home Screen
-  lcd.clear();  
-  lcd.setCursor(0, 0);
-  lcd.print("AutoVac 10,000");
-  lcd.setCursor(0, 1);
-  lcd.print("Extractor OFF");
-  delay(3000);
-  //Display Run Screen
-  lcd.clear();  
-  lcd.setCursor(0, 0);
-  lcd.print("Planer  ON 10.2A");
-  lcd.setCursor(0, 1);
-  lcd.print("Extract ON  5.4A");
-  delay(3000);
-  //Display OVER-Run Screen
-  lcd.clear();  
-  lcd.setCursor(0, 0);
-  //lcd.print("Bandsaw ON 10.2A");
-  lcd.print("Planer  0FF ");
-  lcd.setCursor(0, 1);
-  lcd.print("Extract o/run 5s");
-  delay(3000);
+  //wait
+  delay(500);
+  
   
   
 }
@@ -130,19 +119,42 @@ void ManualOverride(){
 } 
 
 void Run(int index){ // parameter is the machine index of the running machine
+  //loop checking status of sensor
+   int i=0;
+   while(machines[index].threshold < GetSensorValue(machines[index].pin)){
+     //turn on the extractor
+     digitalWrite(relayPin, HIGH);
+     //draw screen
+     if(i==10){  //draw override screen every n iterations
+       DrawRunScreen(index);
+       i=0;
+     }
+     i++;
+     if(machines[i].threshold < GetSensorValue(machines[i].pin))  //check pin again
+       delay(250);  //wait
+     else
+       break;       
+   }
+  
+   //draw the run screen
 
+   //post run
 }
 
 void DrawHomeScreen(){
-  
+  lcd.clear();  
+  lcd.setCursor(0, 0);
+  lcd.print("AutoVac 10,000");  /// Add RTC and show clock?
+  lcd.setCursor(0, 1);
+  lcd.print("Extractor OFF");
 }
 
 void DrawRunScreen(int index){
   lcd.clear();  
   lcd.setCursor(0, 0);
-  lcd.print("Planer");
+  lcd.print(machines[index].name);
   lcd.print(" ON ");
-  lcd.print(GetCurrent(),1);
+  lcd.print(GetCurrent(machines[index].pin),1);
   lcd.print("A");
   lcd.setCursor(0, 1);
   lcd.print("Extract ON ");
@@ -157,13 +169,14 @@ void DrawManualOverrideScreen(float c){
   lcd.setCursor(0, 1);
   lcd.print("Extract ON ");
   lcd.print(c,1);
-  lcd.print("A");
-  
+  lcd.print("A");  
 }
 
+int GetSensorValue(int pin){
+  return 900;
+}
 
 float GetCurrent(int pin){
-  return 4.5;
-  
+  return 4.5;  
 }
 
