@@ -56,15 +56,16 @@ typedef struct Machine {
 };
 
 int relayPin = 9; // control relay connected to digital pin 9
-int manPin = 8;   // manual switch connected to digital pin 8
+int manPin = 7;   // manual switch connected to digital pin 8
 int extSenPin = 10;
+int testPin = 8;
 //Machine machines[n];
 //int val = 0;     // variable to store the read value
 
 #define M_SIZE = 2
 
 Machine machines[] = { 
-    (Machine){1, "Planer", 800, 5}, 
+    (Machine){1, "Planer ", 800, 5}, 
     (Machine){2, "Bandsaw", 800, 5} 
     //(Machine){1, "Planer", 800, 5}, 
     //(Machine){2, "Bandsaw", 800, 5}
@@ -76,11 +77,14 @@ void setup() {
   pinMode(relayPin, OUTPUT);      // sets the digital pin 9 as output
   pinMode(manPin, INPUT);      // sets the digital pin 8 as input
   pinMode(extSenPin, INPUT);
+  pinMode(testPin, INPUT);
+
   
   //machines = { {1, "Planer", 800, 5},{1, "Bandsaw", 800, 5}};
 }
 
 void loop() {
+  DrawHomeScreen();
   //check for manual
   if (digitalRead(manPin)==HIGH){
     ManualOverride();
@@ -90,18 +94,14 @@ void loop() {
     if(machines[i].threshold < GetSensorValue(machines[i].pin)){
       Run(i);
     }
-  }
-  
+  }  
   //wait
-  delay(500);
-  
-  
-  
+  delay(500);  
 }
 
 void ManualOverride(){
      //loop checking status of manual pin
-     int i=0;
+     int i=10;
      while(digitalRead(manPin)==HIGH){
        //turn on the extractor
        digitalWrite(relayPin, HIGH);
@@ -113,14 +113,19 @@ void ManualOverride(){
        i++;
        if(digitalRead(manPin)==HIGH)  //check pin again
          delay(250);  //wait
-       else
-         break;       
+       else{
+         //digitalWrite(relayPin, LOW);
+         break; 
+       } 
+              
      }
+     digitalWrite(relayPin, LOW);
+     return;
 } 
 
 void Run(int index){ // parameter is the machine index of the running machine
   //loop checking status of sensor
-   int i=0;
+   int i=10;
    while(machines[index].threshold < GetSensorValue(machines[index].pin)){
      //turn on the extractor
      digitalWrite(relayPin, HIGH);
@@ -130,15 +135,32 @@ void Run(int index){ // parameter is the machine index of the running machine
        i=0;
      }
      i++;
-     if(machines[i].threshold < GetSensorValue(machines[i].pin))  //check pin again
+     if(machines[index].threshold < GetSensorValue(machines[index].pin))  //check pin again
        delay(250);  //wait
-     else
-       break;       
+     else{
+       //digitalWrite(relayPin, LOW);
+       break; 
+     }      
    }
-  
-   //draw the run screen
-
    //post run
+   if (machines[index].postrun>0){
+     // display the stop screen and count down the overrun seconds.
+     for(int j=machines[index].postrun;j>0;j--){
+        lcd.clear();  
+        lcd.setCursor(0, 0);
+        lcd.print(machines[index].name);
+        lcd.print(" STOPPED ");
+        lcd.setCursor(0, 1);
+        lcd.print("Ext overrun ");
+        lcd.print(j);
+        lcd.print(" s");
+        delay(1000);
+     }
+    // 
+   }
+   digitalWrite(relayPin, LOW);
+   return;
+   
 }
 
 void DrawHomeScreen(){
@@ -147,6 +169,7 @@ void DrawHomeScreen(){
   lcd.print("AutoVac 10,000");  /// Add RTC and show clock?
   lcd.setCursor(0, 1);
   lcd.print("Extractor OFF");
+  return;
 }
 
 void DrawRunScreen(int index){
@@ -160,6 +183,7 @@ void DrawRunScreen(int index){
   lcd.print("Extract ON ");
   lcd.print(GetCurrent(extSenPin),1);
   lcd.print("A");
+  return;
 }
 
 void DrawManualOverrideScreen(float c){
@@ -170,10 +194,14 @@ void DrawManualOverrideScreen(float c){
   lcd.print("Extract ON ");
   lcd.print(c,1);
   lcd.print("A");  
+  return;
 }
 
 int GetSensorValue(int pin){
-  return 900;
+  if(digitalRead(testPin)==HIGH)
+    return 900;
+  else
+    return 300;
 }
 
 float GetCurrent(int pin){
