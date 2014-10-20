@@ -95,7 +95,7 @@ void loop() {
   }
   //loop over machine array
   for(int i=0;i<2;i++){
-    if(machines[i].threshold < GetSensorValue(machines[i].pin)){
+    if(machines[i].threshold < GetSensorDeviation(machines[i].pin)){
       Run(i);
     }
   }  
@@ -130,7 +130,7 @@ void ManualOverride(){
 void Run(int index){ // parameter is the machine index of the running machine
   //loop checking status of sensor
    int i=10;
-   while(machines[index].threshold < GetSensorValue(machines[index].pin)){
+   while(machines[index].threshold < GetSensorDeviation(machines[index].pin)){
      //turn on the extractor
      digitalWrite(relayPin, HIGH);
      //draw screen
@@ -139,7 +139,7 @@ void Run(int index){ // parameter is the machine index of the running machine
        i=0;
      }
      i++;
-     if(machines[index].threshold < GetSensorValue(machines[index].pin))  //check pin again
+     if(machines[index].threshold < GetSensorDeviation(machines[index].pin))  //check pin again
        delay(250);  //wait
      else{
        //digitalWrite(relayPin, LOW);
@@ -215,7 +215,7 @@ float GetCurrent(int pin){
   //double Current = (SensorVoltage -2.5 )/0.100; 		 	//verify from Datasheet 20A=100, 5A=185
   
   double SensorVoltage = (((long)analogRead(pin) * 5000 / 1024) - 500 ) * 1000 / 133; 
-  double Current = outputValue / 1000;
+  double Current = SensorVoltage / 1000;
   
   return Current;
   
