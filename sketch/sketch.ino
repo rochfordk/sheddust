@@ -55,9 +55,11 @@ typedef struct Machine {
   int postrun;     // seconds of extractor post run after machine stop
 };
 
+
+// Declare Pins
 int relayPin = 9; // control relay connected to digital pin 9
 int manPin = 7;   // manual switch connected to digital pin 8
-int extSenPin = 10;
+const int extSenPin = A1;
 int testPin = 8;
 //Machine machines[n];
 //int val = 0;     // variable to store the read value
@@ -65,8 +67,8 @@ int testPin = 8;
 #define M_SIZE = 2
 
 Machine machines[] = { 
-    (Machine){1, "Planer ", 800, 5}, 
-    (Machine){2, "Bandsaw", 800, 5} 
+    (Machine){A2, "Planer ", 800, 5}, 
+    (Machine){A3, "Bandsaw", 800, 5} 
     //(Machine){1, "Planer", 800, 5}, 
     //(Machine){2, "Bandsaw", 800, 5}
 };
@@ -78,6 +80,8 @@ void setup() {
   pinMode(manPin, INPUT);      // sets the digital pin 8 as input
   pinMode(extSenPin, INPUT);
   pinMode(testPin, INPUT);
+  
+  //TODO - iterate over the machine array setting the pin mode for the sensor inputs.
 
   
   //machines = { {1, "Planer", 800, 5},{1, "Bandsaw", 800, 5}};
@@ -197,14 +201,24 @@ void DrawManualOverrideScreen(float c){
   return;
 }
 
-int GetSensorValue(int pin){
-  if(digitalRead(testPin)==HIGH)
+int GetSensorDeviation(int pin){ //returns deviation form 512 which represents 2.5v from sensor i.e. 0 A
+  /*if(digitalRead(testPin)==HIGH)
     return 900;
   else
-    return 300;
+    return 300;*/
+  
+  return abs(512-analogRead(pin));  //0-1023  
 }
 
 float GetCurrent(int pin){
-  return 4.5;  
+  //double SensorVoltage = GetSensorValue(pin)*5/1023.0;  //
+  //double Current = (SensorVoltage -2.5 )/0.100; 		 	//verify from Datasheet 20A=100, 5A=185
+  
+  double SensorVoltage = (((long)analogRead(pin) * 5000 / 1024) - 500 ) * 1000 / 133; 
+  double Current = outputValue / 1000;
+  
+  return Current;
+  
+  //return 4.5;  
 }
 
