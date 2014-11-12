@@ -67,10 +67,10 @@ int testPin = 8;
 #define M_SIZE = 2
 
 Machine machines[] = { 
-    (Machine){A2, "Planer ", 800, 5}, 
-    (Machine){A3, "Bandsaw", 800, 5} 
-    //(Machine){1, "Planer", 800, 5}, 
-    //(Machine){2, "Bandsaw", 800, 5}
+    (Machine){A2, "Planer ", 80000, 5}, 
+    (Machine){A3, "Bandsaw", 00000, 5} 
+    //(Machine){1, "Planer", 80, 5}, 
+    //(Machine){2, "Bandsaw", 80, 5}
 };
 
 void setup() {
@@ -185,8 +185,9 @@ void DrawRunScreen(int index){
   lcd.print("A");
   lcd.setCursor(0, 1);
   lcd.print("Extract ON ");
-  lcd.print(GetCurrent(extSenPin),1);
-  lcd.print("A");
+  //lcd.print(GetCurrent(extSenPin),1);
+  //lcd.print("A");
+  lcd.print(GetSensorDeviation(A1));
   return;
 }
 
@@ -197,6 +198,7 @@ void DrawManualOverrideScreen(float c){
   lcd.setCursor(0, 1);
   lcd.print("Extract ON ");
   lcd.print(c,1);
+  //lcd.print(GetSensorDeviation(extSenPin));
   lcd.print("A");  
   return;
 }
@@ -208,17 +210,28 @@ int GetSensorDeviation(int pin){ //returns deviation form 512 which represents 2
     return 300;*/
   
   return abs(512-analogRead(pin));  //0-1023  
+  //return 80;
 }
 
 float GetCurrent(int pin){
   //double SensorVoltage = GetSensorValue(pin)*5/1023.0;  //
   //double Current = (SensorVoltage -2.5 )/0.100; 		 	//verify from Datasheet 20A=100, 5A=185
   
-  double SensorVoltage = (((long)analogRead(pin) * 5000 / 1024) - 500 ) * 1000 / 133; 
+  /*double SensorVoltage = (((long)analogRead(pin) * 5000 / 1024) - 500 ) * 1000 / 133; 
   double Current = SensorVoltage / 1000;
+  */
+  //return Current;
   
-  return Current;
+  //double SensorVoltage =  analogRead(pin)*5.0/1023.0;
+  //double Current = (SensorVoltage -2.5 )/0.100; 
   
+  //verage = abs(average) + abs((0.048875855327468 * analogRead(A0) -25) / 1000);
+  
+  float a =((float) analogRead(pin) / 512.0 - 1.0) * 2.5 / 2 * 20;
+  if (a<.5){
+    a=0;
+  }
+  return abs(a);
   //return 4.5;  
 }
 
