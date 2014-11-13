@@ -3,7 +3,16 @@
 
 
 /*
-
+  LiquidCrystal Library - Hello World
+ 
+ Demonstrates the use a 16x2 LCD display.  The LiquidCrystal
+ library works with all LCD displays that are compatible with the
+ Hitachi HD44780 driver. There are many of them out there, and you
+ can usually tell them by the 16-pin interface.
+ 
+ This sketch prints "Hello World!" to the LCD
+ and shows the time.
+ 
   The circuit:
  * LCD RS pin to digital pin 12
  * LCD Enable pin to digital pin 11
@@ -16,9 +25,21 @@
  * ends to +5V and ground
  * wiper to LCD VO pin (pin 3)
  
+ Library originally added 18 Apr 2008
+ by David A. Mellis
+ library modified 5 Jul 2009
+ by Limor Fried (http://www.ladyada.net)
+ example added 9 Jul 2009
+ by Tom Igoe
+ modified 22 Nov 2010
+ by Tom Igoe
+ 
+ This example code is in the public domain.
+
+ http://www.arduino.cc/en/Tutorial/LiquidCrystal
  */
 
-// include the LCD library code:
+// include the library code:
 #include <LiquidCrystal.h>
 
 //#define n 2
@@ -46,7 +67,7 @@ int testPin = 8;
 #define M_SIZE = 2
 
 Machine machines[] = { 
-    (Machine){A2, "Planer ", 80000, 5}, 
+    (Machine){A1, "Planer ", 80000, 5}, 
     (Machine){A3, "Bandsaw", 00000, 5} 
     //(Machine){1, "Planer", 80, 5}, 
     //(Machine){2, "Bandsaw", 80, 5}
@@ -62,6 +83,8 @@ void setup() {
   
   //TODO - iterate over the machine array setting the pin mode for the sensor inputs.
 
+  
+  //machines = { {1, "Planer", 800, 5},{1, "Bandsaw", 800, 5}};
 }
 
 void loop() {
@@ -72,7 +95,8 @@ void loop() {
   }
   //loop over machine array
   for(int i=0;i<2;i++){
-    if(machines[i].threshold < GetSensorDeviation(machines[i].pin)){
+    //if(machines[i].threshold < GetSensorDeviation(machines[i].pin)){
+    if(GetCurrent(machines[i].pin>0)){
       Run(i);
     }
   }  
@@ -107,7 +131,9 @@ void ManualOverride(){
 void Run(int index){ // parameter is the machine index of the running machine
   //loop checking status of sensor
    int i=10;
-   while(machines[index].threshold < GetSensorDeviation(machines[index].pin)){
+   //while(machines[index].threshold < GetSensorDeviation(machines[index].pin)){
+   //while(machines[index].threshold < GetCurrent(machines[index].pin)){
+   while(GetCurrent(machines[index].pin>0)){
      //turn on the extractor
      digitalWrite(relayPin, HIGH);
      //draw screen
@@ -162,9 +188,9 @@ void DrawRunScreen(int index){
   lcd.print("A");
   lcd.setCursor(0, 1);
   lcd.print("Extract ON ");
-  //lcd.print(GetCurrent(extSenPin),1);
-  //lcd.print("A");
-  lcd.print(GetSensorDeviation(A1));
+  lcd.print(GetCurrent(extSenPin),1);
+  lcd.print("A");
+  //lcd.print(GetSensorDeviation(A1));
   return;
 }
 
