@@ -1,52 +1,22 @@
-/* This is based on polling - would be nice to reimplements to use an eventing model */
-
-
-
-/*
-  LiquidCrystal Library - Hello World
- 
- Demonstrates the use a 16x2 LCD display.  The LiquidCrystal
- library works with all LCD displays that are compatible with the
- Hitachi HD44780 driver. There are many of them out there, and you
- can usually tell them by the 16-pin interface.
- 
- This sketch prints "Hello World!" to the LCD
- and shows the time.
- 
-  The circuit:
- * LCD RS pin to digital pin 12
- * LCD Enable pin to digital pin 11
- * LCD D4 pin to digital pin 5
- * LCD D5 pin to digital pin 4
- * LCD D6 pin to digital pin 3
- * LCD D7 pin to digital pin 2
- * LCD R/W pin to ground
- * 10K resistor:
- * ends to +5V and ground
- * wiper to LCD VO pin (pin 3)
- 
- Library originally added 18 Apr 2008
- by David A. Mellis
- library modified 5 Jul 2009
- by Limor Fried (http://www.ladyada.net)
- example added 9 Jul 2009
- by Tom Igoe
- modified 22 Nov 2010
- by Tom Igoe
- 
- This example code is in the public domain.
-
- http://www.arduino.cc/en/Tutorial/LiquidCrystal
- */
-
-// include the library code:
 #include <LiquidCrystal.h>
 
-//#define n 2
+#include <SM.h>
+#include <State.h>
 
+#define DEBUG 1
+
+SM M(S1_idle_H, S1_idle_B);//create statemchine with initial head and body state functions
 
 // initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+// Declare Pins
+int relayPin = 9; // control relay connected to digital pin 9
+int manPin = 7;   // manual switch connected to digital pin 8
+const int extSenPin = A1;
+int testPin = 8;
+int led = 13;
+int index =0;
+
 
 typedef struct Machine {
   int pin;         // arduino pin for sensor input
@@ -55,17 +25,6 @@ typedef struct Machine {
   int postrun;     // seconds of extractor post run after machine stop
 };
 
-
-// Declare Pins
-int relayPin = 9; // control relay connected to digital pin 9
-int manPin = 7;   // manual switch connected to digital pin 8
-const int extSenPin = A1;
-int testPin = 8;
-//Machine machines[n];
-//int val = 0;     // variable to store the read value
-
-#define M_SIZE = 2
-
 Machine machines[] = { 
     (Machine){A1, "Planer ", 80000, 5}, 
     (Machine){A3, "Bandsaw", 00000, 5} 
@@ -73,138 +32,183 @@ Machine machines[] = {
     //(Machine){2, "Bandsaw", 80, 5}
 };
 
-void setup() {
+//=====================
+void setup(){
+  Serial.begin(115200);
+  
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
   pinMode(relayPin, OUTPUT);      // sets the digital pin 9 as output
   pinMode(manPin, INPUT);      // sets the digital pin 8 as input
   pinMode(extSenPin, INPUT);
   pinMode(testPin, INPUT);
+  pinMode(led, OUTPUT); 
   
   //TODO - iterate over the machine array setting the pin mode for the sensor inputs.
 
   
   //machines = { {1, "Planer", 800, 5},{1, "Bandsaw", 800, 5}};
-}
+ 
+ }//setup()
 
-void loop() {
-  DrawHomeScreen();
-  //check for manual
-  if (digitalRead(manPin)==HIGH){
-    ManualOverride();
-  }
-  //loop over machine array
-  for(int i=0;i<2;i++){
-    //if(machines[i].threshold < GetSensorDeviation(machines[i].pin)){
-    if(GetCurrent(machines[i].pin>0)){
-      Run(i);
-    }
-  }  
-  //wait
-  delay(500);  
-}
+void loop(){
+  EXEC(M);//run statemachine
+}//loop()
 
-void ManualOverride(){
-     //loop checking status of manual pin
-     int i=10;
-     while(digitalRead(manPin)==HIGH){
-       //turn on the extractor
-       digitalWrite(relayPin, HIGH);
-       //draw screen
-       if(i==10){  //draw override screen every n iterations
-         DrawManualOverrideScreen(GetCurrent(extSenPin));
-         i=0;
-       }
-       i++;
-       if(digitalRead(manPin)==HIGH)  //check pin again
-         delay(250);  //wait
-       else{
-         //digitalWrite(relayPin, LOW);
-         break; 
-       } 
-              
-     }
-     digitalWrite(relayPin, LOW);
-     return;
-} 
+State S1_idle_H(){//state head function, run only once at each entry
 
-void Run(int index){ // parameter is the machine index of the running machine
-  //loop checking status of sensor
-   int i=10;
-   //while(machines[index].threshold < GetSensorDeviation(machines[index].pin)){
-   //while(machines[index].threshold < GetCurrent(machines[index].pin)){
-   while(GetCurrent(machines[index].pin>0)){
-     //turn on the extractor
-     digitalWrite(relayPin, HIGH);
-     //draw screen
-     if(i==10){  //draw override screen every n iterations
-       DrawRunScreen(index);
-       i=0;
-     }
-     i++;
-     if(machines[index].threshold < GetSensorDeviation(machines[index].pin))  //check pin again
-       delay(250);  //wait
-     else{
-       //digitalWrite(relayPin, LOW);
-       break; 
-     }      
-   }
-   //post run
-   if (machines[index].postrun>0){
-     // display the stop screen and count down the overrun seconds.
-     for(int j=machines[index].postrun;j>0;j--){
-        lcd.clear();  
-        lcd.setCursor(0, 0);
-        lcd.print(machines[index].name);
-        lcd.print(" STOPPED ");
-        lcd.setCursor(0, 1);
-        lcd.print("Ext overrun ");
-        lcd.print(j);
-        lcd.print(" s");
-        delay(1000);
-     }
-    // 
-   }
-   digitalWrite(relayPin, LOW);
-   return;
-   
-}
-
-void DrawHomeScreen(){
+  //turn off extractor
+  digitalWrite(relayPin, LOW);
+  digitalWrite(led, LOW);
+  
+  //display home screen
   lcd.clear();  
   lcd.setCursor(0, 0);
   lcd.print("AutoVac 10,000");  /// Add RTC and show clock?
   lcd.setCursor(0, 1);
   lcd.print("Extractor OFF");
-  return;
+  
+  #ifdef DEBUG
+  Serial.println("S1_idle_H");//print message on each re-entry
+  #endif
 }
 
-void DrawRunScreen(int index){
-  lcd.clear();  
-  lcd.setCursor(0, 0);
-  lcd.print(machines[index].name);
-  lcd.print(" ON ");
-  lcd.print(GetCurrent(machines[index].pin),1);
-  lcd.print("A");
-  lcd.setCursor(0, 1);
-  lcd.print("Extract ON ");
-  lcd.print(GetCurrent(extSenPin),1);
-  lcd.print("A");
-  //lcd.print(GetSensorDeviation(A1));
-  return;
+State S1_idle_B(){//state body function run constantly
+  //
+  #ifdef DEBUG
+  Serial.println("S1_idle_B");//print message on each re-entry
+  if(M.Timeout(5000)) M.Set(S3_run_H, S3_run_B);
+  #endif
+  index = 0;
+  //if(M.Timeout(500)) M.Set(S1_idle_H, S1_idle_B);//re-enter state after 0,5s
+  
+  //while(digitalRead(manPin)==HIGH)
+  
+  if(digitalRead(manPin)==HIGH) M.Set(S2_manual_H, S2_manual_B);
+  
+  if(machineRunning()) M.Set(S3_run_H, S3_run_B);
+  
+}//
+
+boolean machineRunning(){
+  //iterate over the array of defined machines
+  //if any machine is running, set index and return true; 
+  for(int i=0;i<2;i++){
+    //if(machines[i].threshold < GetSensorDeviation(machines[i].pin)){
+    if(GetCurrent(machines[i].pin>0)){
+      index = i;
+      Serial.println("machine running");//print message on each re-entry
+      return true;
+    }
+  }  
+  return false;
 }
 
-void DrawManualOverrideScreen(float c){
+State S2_manual_H(){//state head function, run only once at each entry
+  //display manual screen
   lcd.clear();  
   lcd.setCursor(0, 0);
   lcd.print("MANUAL OVERRIDE");
   lcd.setCursor(0, 1);
   lcd.print("Extract ON ");
-  lcd.print(c,1);
+  //lcd.print(c,1);  
   //lcd.print(GetSensorDeviation(extSenPin));
-  lcd.print("A");  
-  return;
+  lcd.setCursor(15,1 );
+  lcd.print("A"); 
+  #ifdef DEBUG
+  Serial.println("S2_manual_H");//print message on each re-entry
+  #endif
 }
+
+State S2_manual_B(){//state body function run constantly
+  #ifdef DEBUG
+  Serial.println("S2_manual_B");//print message on each re-entry
+  #endif
+  // run extractor
+  digitalWrite(relayPin, HIGH);
+  digitalWrite(led, HIGH);
+  // Draw extractor current
+  lcd.setCursor(12,1 );
+  //Print average measurement over 10 smamples
+  /*float avg=0;
+  for(int i=0; i<10; i++){
+    avg+=GetCurrent(extSenPin);
+    delay(10);
+  }
+  float displayVal=avg/10;
+  lcd.print(displayVal,1); 
+  */
+  //test for manual call
+  if(digitalRead(manPin)==LOW) M.Set(S1_idle_H, S1_idle_B);
+  // test for manual pin (should we test for machine run too or go to orun via idle?)
+  //if(M.Timeout(500)) M.Set(S1_idle_H, S1_idle_B);//re-enter state after 0,5s
+}//
+
+State S3_run_H(){//state head function, run only once at each entry
+  //get the index of the running machine
+  //int index=0;
+
+  //display run screen
+  lcd.clear();  
+  lcd.setCursor(0, 0);
+  lcd.print(machines[index].name);
+  lcd.print(" ON ");
+  lcd.print(GetCurrent(machines[index].pin),1);  //TODO: Move this to the state body
+  lcd.print("A");
+  lcd.setCursor(0, 1);
+  lcd.print("Extract ON ");
+  lcd.print(GetCurrent(extSenPin),1); //TODO: Move this to the state body
+  lcd.print("A");
+  //lcd.print(GetSensorDeviation(A1));
+  #ifdef DEBUG
+  Serial.println("S3_run_H");//print message on each re-entry
+  #endif
+}
+
+State S3_run_B(){//state body function run constantly
+  // run extractor until (all?) machine(s?) stopped
+  digitalWrite(relayPin, HIGH);
+  digitalWrite(led, HIGH);
+  #ifdef DEBUG
+  Serial.println("S3_run_B");//print message on each re-entry
+  delay(5000);
+  #endif
+  // test for machine current and go to overrun if low
+  if(GetCurrent(machines[index].pin)==0) M.Set(S4_overrun_H, S4_overrun_B);
+  
+  //if(M.Timeout(500)) M.Set(S1_idle_H, S1_idle_B);//re-enter state after 0,5s
+}//
+
+State S4_overrun_H(){//state head function, run only once at each entry
+  //display overrun screen
+  //int index =0;
+  
+  lcd.clear();  
+  lcd.setCursor(0, 0);
+  lcd.print(machines[index].name);
+  lcd.print(" STOPPED ");
+  lcd.setCursor(0, 1);
+  lcd.print("Ext overrun ");
+       
+  #ifdef DEBUG
+  Serial.println("S4_overrun_H");//print message on each re-entry
+  #endif
+}
+
+State S4_overrun_B(){//state body function run constantly
+  // run extractor for designated time
+  digitalWrite(relayPin, HIGH);
+  digitalWrite(led, HIGH);
+  // test for manual pin (should we test for machine run too or go to orun via idle?)
+  if(M.Timeout(machines[index].postrun*1000)) M.Set(S1_idle_H, S1_idle_B); // return to idle after specified overrun time
+  
+  //reset index to -1
+}//
+
+/*
+States: Idle, Manual, Run, Overrun
+
+*/
 
 int GetSensorDeviation(int pin){ //returns deviation form 512 which represents 2.5v from sensor i.e. 0 A
   /*if(digitalRead(testPin)==HIGH)
@@ -231,10 +235,9 @@ float GetCurrent(int pin){
   //verage = abs(average) + abs((0.048875855327468 * analogRead(A0) -25) / 1000);
   
   float a =((float) analogRead(pin) / 512.0 - 1.0) * 2.5 / 2 * 20;
-  if (a<.5){
+  if (a<2){
     a=0;
   }
   return abs(a);
   //return 4.5;  
 }
-
